@@ -24,6 +24,25 @@ from IANASteps.BCFilterDetector.BCFilterDetector import splitToBands, detectBCFi
 log = getLog("FeatureExtractor")
 log.setLevel(logging.ERROR)
 
+def saveDebugImage(debugImage, debugImagefile, tags):
+    ''' Saves the PIL.Image debugImage to the debugImagefile
+    
+        Keyword Arguments:
+        debugImage     -- a PIL.Image object
+        debugImagefile -- a file or string
+        tags           -- tag string of the caliing function for logging
+    '''
+    if isinstance(debugImagefile, str):
+        debugImage.save(debugImagefile)
+    else:
+        try:
+            debugImage.save(debugImagefile, 'png')
+            debugImagefile.close()
+            log.info('saved debug image', extra=tags)
+        except Exception, err:
+            log.error('Error %s' % str(err), extra=tags)
+    
+
 # TODO: This method returns an image make it return the samples value
 def featureExtractor(imagefile, imageLogLevel, debugImagefile, parenttags=None, level=logging.ERROR,):
     ''' This method analyzes the imageFile, and extracts the grayscale gradient, samples
@@ -71,6 +90,8 @@ def featureExtractor(imagefile, imageLogLevel, debugImagefile, parenttags=None, 
         qr, exitcode = detectQR(imagefile, tags, logging.DEBUG)
     
         if exitcode is not ExitCode.Success:
+            if imageLogLevel:
+                saveDebugImage(debugImage, debugImagefile, tags)
             log.error('Could not process imagefile for QR: ' + ExitCode.toString[exitcode], extra=tags)
             return None, exitcode
         
@@ -83,6 +104,8 @@ def featureExtractor(imagefile, imageLogLevel, debugImagefile, parenttags=None, 
         stage, exitcode = detectStage(qr, tags, logging.DEBUG)
         
         if exitcode is not ExitCode.Success:
+            if imageLogLevel:
+                saveDebugImage(debugImage, debugImagefile, tags)
             log.error('Could not process imagefile for Stage: ' + ExitCode.toString[exitcode], extra=tags)
             return None, exitcode
         
@@ -92,6 +115,8 @@ def featureExtractor(imagefile, imageLogLevel, debugImagefile, parenttags=None, 
         grayBars, exitcode = getGrayBars(qr, image, tags, logging.DEBUG)
         
         if exitcode is not ExitCode.Success:
+            if imageLogLevel:
+                saveDebugImage(debugImage, debugImagefile, tags)
             log.error('Could not get grayBars from imagefile Calibrator ' + ExitCode.toString[exitcode], extra=tags)
             return None, exitcode
         
@@ -118,6 +143,8 @@ def featureExtractor(imagefile, imageLogLevel, debugImagefile, parenttags=None, 
         image, exitcode = transform(image, stage, tags, logging.DEBUG)
     
         if exitcode is not ExitCode.Success:
+            if imageLogLevel:
+                saveDebugImage(debugImage, debugImagefile, tags)
             log.error('Could not transform imagefile using Stage Coordinates: ' + ExitCode.toString[exitcode], extra=tags)
             return None, exitcode
         
@@ -126,6 +153,8 @@ def featureExtractor(imagefile, imageLogLevel, debugImagefile, parenttags=None, 
             debugImage, exitcode = transform(debugImage, stage, tags, logging.DEBUG)
     
             if exitcode is not ExitCode.Success:
+                if imageLogLevel:
+                    saveDebugImage(debugImage, debugImagefile, tags)
                 log.error('Could not transform debugImage using Stage Coordinates: ' + ExitCode.toString[exitcode], extra=tags)
                 return None, exitcode
         
@@ -151,6 +180,8 @@ def featureExtractor(imagefile, imageLogLevel, debugImagefile, parenttags=None, 
             bcFilters, exitcode = detectBCFilter(band, tags, logging.DEBUG)
             
             if exitcode is not ExitCode.Success:
+                if imageLogLevel:
+                    saveDebugImage(debugImage, debugImagefile, tags)
                 log.error('Could not detect filters in the Image ' + ExitCode.toString[exitcode], extra=tags)
                 return None, exitcode
             
@@ -175,16 +206,7 @@ def featureExtractor(imagefile, imageLogLevel, debugImagefile, parenttags=None, 
         # Save the debug image
         ###
         if imageLogLevel:
-            if isinstance(debugImagefile, str):
-                debugImage.save(debugImagefile)
-            else:
-                try:
-                    debugImage.save(debugImagefile, 'png')
-                    debugImagefile.close()
-                except Exception, err:
-                    log.error('Error %s' % str(err), extra=tags)
-                
-                    return None, ExitCode.UnknownError        
+            saveDebugImage(debugImage, debugImagefile, tags)        
             
         if imageLogLevel > 1:
             if isinstance(debugImagefile, str):
