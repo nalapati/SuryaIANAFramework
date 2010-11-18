@@ -38,13 +38,14 @@ def splitToBands(image):
         
     return bands
 
-def detectBCFilter(image, parenttags=None, level=logging.ERROR):
+def detectBCFilter(image, bcFilterConstants, parenttags=None, level=logging.ERROR):
     ''' Detects circles in an image
     
     Keyword Arguments:
     image -- Image instance
-    level -- The logging level
+    bcFilterConstants -- The configuration under which to run bcFilter detection
     parenttags -- tag string of the calling function
+    level -- The logging level
     
     Returns:
     list of CirclesFilter_.BCFilter objects
@@ -56,7 +57,7 @@ def detectBCFilter(image, parenttags=None, level=logging.ERROR):
         
     try:
         log.info('Running BCFilter Detection', extra=tags)
-        circles = houghTransform(image, tags)
+        circles = houghTransform(image, bcFilterConstants, tags)
 
         width, height = image.size
 
@@ -72,17 +73,23 @@ def detectBCFilter(image, parenttags=None, level=logging.ERROR):
         log.error('Error %s' % str(err))        
         return None, ExitCode.FilterDetectionError
 
-def houghTransform(image, parenttags=None):
+def houghTransform(image, bcFilterConstants, parenttags=None):
     """ Runs the hough circle detection against the image
     
     Keyword Arguments:
     image -- Image instance
+    bcFilterConstants -- The configuration under which to run bcFilter detection
     parenttags -- tag string of the calling function
     
     Returns:
     a list of CirclesFilter_.Circle objects
     """
 
+    if bcFilterConstants is None:
+        constants = BCFilterConstants
+    else:
+        constants = bcFilterConstants
+        
     cvImage = opencv.PIL2Ipl(image)
     
     # smoothen the Image
@@ -91,25 +98,36 @@ def houghTransform(image, parenttags=None):
     storage = opencv.cvCreateMemStorage(0)
 
     # print the settings that were used to detect circles
-    log.info(BCFilterConstants.str(), extra=parenttags)
+    log.info('BCFilterConstants dp:{0}, '\
+                                'minimum distance:{1}, '\
+                                'high threshold:{2}, '\
+                                'accumulator threshold:{3}, '\
+                                'minimum radius:{4}, '\
+                                'maximum radius:{5}'.format(constants.dp,
+                                                      constants.minimumDistance,
+                                                      constants.highThreshold,
+                                                      constants.accumulatorThreshold,
+                                                      constants.minimumRadius,
+                                                      constants.maximumRadius)
+                                , extra=parenttags)
     
     circles = opencv.cvHoughCircles(cvImage, 
                                     storage,
                                     opencv.CV_HOUGH_GRADIENT,
-                                    BCFilterConstants.dp, 
-                                    BCFilterConstants.minimumDistance,
-                                    BCFilterConstants.highThreshold, 
-                                    BCFilterConstants.accumulatorThreshold,
-                                    BCFilterConstants.minimumRadius, 
-                                    BCFilterConstants.maximumRadius)
+                                    constants.dp, 
+                                    constants.minimumDistance,
+                                    constants.highThreshold, 
+                                    constants.accumulatorThreshold,
+                                    constants.minimumRadius, 
+                                    constants.maximumRadius)
 
     # unpack the circle into a generic tuple
     # !!something wrong with circle.__getitem__ (don't use "tuple(circle)")
-    if BCFilterConstants.maximumRadius != 0:
+    if constants.maximumRadius != 0:
         # neither minimumRadius nor maximumRadius seem to be an absolue
         circles = [(float(circle[0]), float(circle[1]), float(circle[2]))
                         for circle in circles
-                        if BCFilterConstants.minimumRadius <= circle[2] <= BCFilterConstants.maximumRadius]
+                        if constants.minimumRadius <= circle[2] <= constants.maximumRadius]
     else:
         circles = [(float(circle[0]), float(circle[1]), float(circle[2]))
                         for circle in circles]

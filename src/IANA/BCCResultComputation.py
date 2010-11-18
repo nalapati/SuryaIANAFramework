@@ -48,6 +48,6 @@ def bccResultComputation(sampledRGB, filterRadius, exposedTime, airFlowRate, bcG
 
     log.info('Done Running BCCResultComputation', extra=tags)
     
-    plotChart(filterRadius, exposedTime, airFlowRate, bcGradient, gradient, bccResult, chartFile)
+    plotChart(filterRadius, exposedTime, airFlowRate, bcGradient, gradient, bccResult, sampledRGB, chartFile)
     
     return bccResult, exitcode

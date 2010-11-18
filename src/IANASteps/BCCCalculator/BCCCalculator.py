@@ -79,7 +79,7 @@ def rateFilter(sampledRGB, filterRadius, exposedTime, flowRate, bcgradient, grad
         bccResult.rSquaredGreen = rsquared(expmod, bccResult.fitGreen, pylab.array(gradientRed), bcgradient)
         bccResult.rSquaredBlue = rsquared(expmod, bccResult.fitBlue, pylab.array(gradientRed), bcgradient)
     
-        red, green, blue = bccResult.sample = sampledRGB
+        red, green, blue = sampledRGB
         
         bccResult.BCAreaRed = expmod(bccResult.fitRed, red)
         bccResult.BCAreaGreen = expmod(bccResult.fitGreen, green)

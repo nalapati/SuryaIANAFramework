@@ -18,7 +18,8 @@ from IANASteps.QRDetector.QRDetector import detectQR
 from IANASteps.Calibrator.Calibrator import getGrayBars
 from IANASteps.StageDetector.StageDetector import detectStage
 from IANASteps.ImageTransformer.ImageTransformer import transform
-from IANASettings.Settings import ExitCode, MainConstants, CalibratorConstants
+from IANASettings.Settings import ExitCode, MainConstants, CalibratorConstants,\
+    BCFilterConstants
 from IANASteps.BCFilterDetector.BCFilterDetector import splitToBands, detectBCFilter, select, PsycoInit
 
 log = getLog("FeatureExtractor")
@@ -44,7 +45,7 @@ def saveDebugImage(debugImage, debugImagefile, tags):
     
 
 # TODO: This method returns an image make it return the samples value
-def featureExtractor(imagefile, imageLogLevel, debugImagefile, parenttags=None, level=logging.ERROR,):
+def featureExtractor(imagefile, imageLogLevel, debugImagefile, preProcessingConfiguration, parenttags=None, level=logging.ERROR,):
     ''' This method analyzes the imageFile, and extracts the grayscale gradient, samples
         the filter in the image and returns the aux_id contained in the QR Code
     
@@ -52,6 +53,8 @@ def featureExtractor(imagefile, imageLogLevel, debugImagefile, parenttags=None, 
         imagefile      -- The image file on which to perform the black carbon concentration analysis
         imageLogLevel  -- 0, no logging, 1 log image, 2 log and show image
         debugImagefile -- The image file in which to store the image processing debug info.
+        preProcessingConfiguration -- The (bcfilter, sampling)configuration under which to preprocess this image.
+                                        NOTE: MUST HAVE (dp, minimumRadius, maximumRadius, highThreshold, accumulatorThreshold, minimumDistance) fields
         parenttags     -- tag string of the calling function
         level          -- The logging level
         
@@ -177,7 +180,7 @@ def featureExtractor(imagefile, imageLogLevel, debugImagefile, parenttags=None, 
         
         
         for band in bands:
-            bcFilters, exitcode = detectBCFilter(band, tags, logging.DEBUG)
+            bcFilters, exitcode = detectBCFilter(band, preProcessingConfiguration, tags, logging.DEBUG)
             
             if exitcode is not ExitCode.Success:
                 if imageLogLevel:
@@ -212,7 +215,10 @@ def featureExtractor(imagefile, imageLogLevel, debugImagefile, parenttags=None, 
             if isinstance(debugImagefile, str):
                 debugImage.show()
         
-        sampledRGB = bestBcFilter.sample(image, bestBcFilter.radius/MainConstants.samplingfactor) 
+        if preProcessingConfiguration.samplingFactor is None or preProcessingConfiguration.samplingFactor is 0:
+            sampledRGB = bestBcFilter.sample(image, bestBcFilter.radius/MainConstants.samplingfactor)
+        else:
+            sampledRGB = bestBcFilter.sample(image, bestBcFilter.radius/preProcessingConfiguration.samplingFactor)
         
         return (sampledRGB, qr.aux, gradient), exitcode
 

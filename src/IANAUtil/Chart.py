@@ -8,14 +8,14 @@ import pylab
 
 from IANAUtil.Rating import Rating
 
-def plotChart(filterRadius, exposedTime, flowRate, bcgradient, gradient, bccResult, chartName):
+def plotChart(filterRadius, exposedTime, flowRate, bcgradient, gradient, bccResult, sampledRGB, chartName):
     ''' Plot the results onto a Chart
     '''
         
     BCGradient = pylab.array(bcgradient)
 
     gradientRed, gradientGreen, gradientBlue = zip(*gradient[1:-1])
-    redSample, greenSample, blueSample = bccResult.sample
+    redSample, greenSample, blueSample = sampledRGB
 
 
     fig = pylab.figure()
@@ -33,7 +33,7 @@ def plotChart(filterRadius, exposedTime, flowRate, bcgradient, gradient, bccResu
                plotrange, Rating.expmod(bccResult.fitBlue, plotrange), 'b-')
 
     # plot the sample point
-    red, green, blue = bccResult.sample
+    red, green, blue = sampledRGB
     pylab.plot(red, -1, 'rs', green, -1, 'gs', blue, -1, 'bs')
 
     pylab.plot(redSample, bccResult.BCAreaRed, 'ks', greenSample, bccResult.BCAreaGreen, 'ks',

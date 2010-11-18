@@ -5,24 +5,26 @@ Created on Nov 11, 2010
 '''
 
 import logging
+import datetime
 
-from mongoengine import *
-from mongoengine.connection import _get_db
 from gridfs import *
-from DANA.DANAFramework import DANAFramework
+from mongoengine import *
 from Logging.Logger import getLog
-from IANASettings.Settings import ExitCode
 from bson.objectid import ObjectId
-from BCCResultComputation import bccResultComputation
+from IANASettings.Settings import ExitCode
+from mongoengine.connection import _get_db
+from DANA.DANAFramework import DANAFramework
 from FeatureExtractor import featureExtractor
+from Collections.SuryaProcessResult import *
 from Collections.SuryaProcessingList import *
 from Collections.SuryaDeploymentData import *
 from Collections.SuryaCalibrationData import *
-from Collections.SuryaProcessResult import *
-from DANAExceptions.CalibrationError import CalibrationError
-from DANAExceptions.PreProcessingError import PreProcessingError
-from DANAExceptions import ResultComputationError
+from BCCResultComputation import bccResultComputation
 from DANAExceptions.ResultSavingError import ResultSavingError
+from DANAExceptions.PreProcessingError import PreProcessingError
+from DANAExceptions.PprocCalibrationError import PprocCalibrationError
+from DANAExceptions.CompuCalibrationError import CompuCalibrationError
+from DANAExceptions.ResultComputationError import ResultComputationError
 
 class PreProcessingResult:
     """ Results after the Image has been preprocessed.
@@ -54,7 +56,6 @@ class DanaResult:
         self.bccResult = bccResult
         self.exitcode  = exitcode
         self.result    = result # Partially constructed SuryaImageAnalysisResult object with the ChartImage Field set
-    
 
 class IANAFramework(DANAFramework):
     """                 The Image ANAlysis Framework Implementation
@@ -77,11 +78,10 @@ class IANAFramework(DANAFramework):
         self.fs = GridFS(_get_db())
     
     def getDataItems(self):
-        """ Step 0: 
-            Refer DANAFramework.getDataItems() for documentation
+        """ Refer DANAFramework.getDataItems() for documentation
         """
         
-        return SuryaProcessingList.objects
+        return SuryaIANAProcessingList.objects(processedFlag=False)
     
     def getItemName(self, dataItem):
         """ Refer DanaFramework.getItemName() for documentation
@@ -89,102 +89,99 @@ class IANAFramework(DANAFramework):
         return dataItem.processEntity.file.name
         
     def isValid(self, dataItem):
-        """ Step 1:
-            Refer DANAFramework.isValid() for documentation
+        """ Refer DANAFramework.isValid() for documentation
         """
         return dataItem.processEntity.validFlag
     
-    def preProcessDataItem(self, itemname, dataItem, epoch):
-        """ Step 2:
-            Refer DANAFramework.preProcessDataItem() for documentation
-        """
-        
-        # Set the logging tags
-        tags = self.ianatags + itemname + " PPROC"
-        
-        # Create a new pre-processin result object
-        result = SuryaImagePreProcessingResult()
-        
-        # Fetch the image
-        imagefile = dataItem.processEntity.file
-        
-        # Fetch the debugImage
-        debugImagename = (itemname + ".debug." + str(epoch) + ".png")
-        
-        # Check if the image already exists, delete it
-        if self.fs.exists(filename=debugImagename):
-            debugImage = self.fs.get_last_version(debugImagename)
-            self.fs.delete(debugImage.__getattr__("_id"))
-        
-        result.debugImage.new_file(filename=debugImagename, content_type='image/png')
-        
-        self.log.info("Running PPROC", extra=tags)
-        
-        # Get the Features from the image
-        features, exitcode = featureExtractor(imagefile, 1, result.debugImage, tags, logging.DEBUG)
-        
-        # Set the result status
-        result.status = ExitCode.toString[exitcode]
-        result.isEmailed = False
-        dataItem.preProcessResultList.append(result)
-        
-        if exitcode is not ExitCode.Success:
-            raise PreProcessingError(ExitCode.toString[exitcode], result)
-        
-        self.log.info("Done Running PPROC", extra=tags)
-        return PreProcessingResult(features, result)
-        
-        
-    def getCalibrationConfigurations(self, itemname, dataItem, preProcessingResult):
-        """ Step 3:
-            Refer DANAFramework.getCalibrationConfigurations for documentation
+    def getPreProcessingConfiguration(self, itemname, dataItem):
+        """ Refer DANAFramework.getPreProcessingConfiguration for documentation
         """
         try:
-            
             # Set the logging tags
-            tags = self.ianatags + itemname + " CALIB"
+            tags = self.ianatags + itemname + " PPROCCALIB"
             
-            self.log.info("Running CALIB", extra=tags)
-            calibrationIdList = []
-            # Fetch a list of SuryaCalibrationData calibrationIds that are currently associated with 
-            # the item
-            for configuration in dataItem.configurations:
-                calibrationIdList.append(configuration.calibrationData.calibrationId)
-            
-            # Check the Deployment table to see if there are any new configurations for this item
-            newCalibrationDataList = []
-            for deploymentData in SuryaDeploymentData.objects(deploymentId=dataItem.processEntity.deploymentId):
-                # For the current deploymentDataRecord check if any calibration configurations have been activated
-                if dataItem.processEntity.recordDatetime >= deploymentData.activateDatetime:
-                    newCalibrationDataList.append(deploymentData.calibrationId)
-            
-            # For all calibrations obtained from the deployment table check if they
-            # are already associated with the item, if not append to the list of known 
-            # calibration configurations
-            for newCalibrationData in newCalibrationDataList:
-                if newCalibrationData.calibrationId not in calibrationIdList:
-                    dataItem.configurations.append(SuryaConfiguration(calibrationData=newCalibrationData,
-                                                                      resultList=[]))
-            
-            self.log.info("Done Running CALIB", extra=tags)        
-            return dataItem.configurations
-        
+            self.log.info("Done Running PPROCCALIB", extra=tags)
+
+            # here we actually fetch and store the updated preProcessing config
         except Exception, err:
-            raise CalibrationError(err)
+            raise PprocCalibrationError(err)
     
-    def getCurrentEpoch(self, dataItem):
-        """ Refer DANAFramework.getCurrentEpoch for documentation
+    def preProcessDataItem(self, itemname, dataItem):
+        """ Refer DANAFramework.preProcessDataItem() for documentation
         """
-    
-        return (dataItem.epoch + 1)
-    
-    def isProcessed(self, dataItem):
-        """ Refer DANAFramework.isProcessed for documentation
-        """
+        try:
+            # Set the logging tags
+            tags = self.ianatags + itemname + " PPROC"
+            
+            self.log.info("Running PPROC", extra=tags)
+            
+            # Create a new pre-processin result object
+            result = SuryaImagePreProcessingResult()
+
+            # Fetch the image
+            imagefile = dataItem.processEntity.file
+            
+            # Fetch the debugImage
+            debugImagename = (itemname + ".debug." + str(dataItem.preProcessingConfiguration.calibrationId) + ".png")
+            
+            # Check if the image already exists, delete it
+            if self.fs.exists(filename=debugImagename):
+                debugImage = self.fs.get_last_version(debugImagename)
+                self.fs.delete(debugImage.__getattr__("_id"))
+             
+            result.debugImage.new_file(filename=debugImagename, content_type='image/png')
         
-        return dataItem.processedFlag
+            # Get the Features from the image
+            features, exitcode = featureExtractor(imagefile, 1, result.debugImage, dataItem.preProcessingConfiguration, tags, logging.DEBUG)
     
-    def computeDANAResult(self, itemname, dataItem, epoch, calibrationConfiguration, preProcessingResult):
+            # Set the result status
+            result.status = ExitCode.toString[exitcode]
+            
+            if exitcode is not ExitCode.Success:
+                result.validFlag = False
+                raise PreProcessingError(ExitCode.toString[exitcode], result, None)
+                    
+            result.validFlag = True
+            result.sampled = features[0]
+            
+            self.log.info("Done Running PPROC", extra=tags)
+            return PreProcessingResult(features, result)
+        except Exception, err:
+            if isinstance(err, PreProcessingError):
+                raise err
+            result = SuryaImagePreProcessingResult()
+            result.item                       = dataItem.processEntity
+            result.preProcessingConfiguration = dataItem.preProcessingConfiguration
+            result.validFlag                  = False
+            result.status                     = str(err)
+            raise PreProcessingError(None, result, None)
+             
+            
+    def getComputationConfiguration(self, itemname, dataItem, preProcessingResult):
+        """ Refer DANAFramework.getComputationConfiguration for documentation
+        """
+            
+        try:
+            # Set the logging tags
+            tags = self.ianatags + itemname + " COMPUCALIB"
+            
+            self.log.info("Running COMPUCALIB", extra=tags)
+            if dataItem.overrideFlag:
+                # TODO: 
+                # a) from pre-processing result get aux_id : the aux_id, dataItem.deploymentId as the key
+                #    fetch an air_flow_rate from the pumps table.
+                # b) from the misc field fetch any calibration data.
+                # combining a) and b) over the defaut calibration data, get and add a new calibration entry
+                # to the calibration data table.
+                # and use this new calibration entry for computing BCVol
+                #
+                pass
+            self.log.info("Done Running COMPUCALIB", extra=tags)        
+            return dataItem.computationConfiguration, dataItem.bcStrips
+        except Exception, err:
+            raise CompuCalibrationError(err, preProcessingResult)
+        
+    def computeDANAResult(self, itemname, dataItem, preProcessingResult):
         """ Refer DANAFramework.computeDANAResult for documentation
         """
         
@@ -195,7 +192,7 @@ class IANAFramework(DANAFramework):
             self.log.info("Running COMPU", extra=tags)
             
             result = SuryaImageAnalysisResult()
-            chartFileName = (itemname + ".chart." + str(epoch) + ".png")
+            chartFileName = (itemname + ".chart." + str(dataItem.computationConfiguration.calibrationId) + ".png")
              
             # Check if the image already exists if not create a new file
             if self.fs.exists(filename=chartFileName):
@@ -207,24 +204,26 @@ class IANAFramework(DANAFramework):
             chartImage = result.chartImage
             sampledRGB, aux, gradient = preProcessingResult.features
             
-            calibrationData = calibrationConfiguration.calibrationData
-            
-            filterRadius = calibrationData.filterRadius
-            exposedTime = calibrationData.exposedTime
-            airFlowRate = calibrationData.airFlowRate
-            bcGradient = calibrationData.bcStrips
+            filterRadius = dataItem.computationConfiguration.filterRadius
+            exposedTime = dataItem.computationConfiguration.exposedTime
+            airFlowRate = dataItem.computationConfiguration.airFlowRate
+            bcGradient = dataItem.bcStrips.bcStrips
             
             
             # Compute the BCCResult
             bccResult, exitcode = bccResultComputation(sampledRGB, filterRadius, exposedTime, airFlowRate, bcGradient, gradient, chartImage, tags, logging.DEBUG)
             chartImage.close()
+            if exitcode is not ExitCode.Success:
+                result.status    = ExitCode.toString[exitcode] 
+                result.validFlag = False
+                raise ResultComputationError(result.status, preProcessingResult, result)
+                
             bccResult_ = BccResult(fitRed         = bccResult.fitRed, 
                                    fitGreen       = bccResult.fitGreen,
                                    fitBlue        = bccResult.fitBlue,
                                    rSquaredRed    = bccResult.rSquaredRed,
                                    rSquaredGreen  = bccResult.rSquaredGreen,
                                    rSquaredBlue   = bccResult.rSquaredBlue,
-                                   sample         = bccResult.sample,
                                    BCAreaRed      = bccResult.BCAreaRed,
                                    BCAreaGreen    = bccResult.BCAreaGreen,
                                    BCAreaBlue     = bccResult.BCAreaBlue,
@@ -233,59 +232,84 @@ class IANAFramework(DANAFramework):
                                    BCVolBlue      = bccResult.BCVolBlue)
             result.result = bccResult_
             result.status = ExitCode.toString[exitcode]
-            result.isEmailed = False
-            result.epoch = epoch
-            calibrationConfiguration.resultList.append(result)
-            
+            result.validFlag = True
+        
             self.log.info("Done Running COMPU", extra=tags)
-            
+            return result
         except Exception, err:
-            raise ResultComputationError(err)
+            if isinstance(err, ResultComputationError):
+                raise err
+            result = SuryaImageAnalysisResult()
+            result.validFlag                = False
+            result.status                   = str(err)
+            raise ResultComputationError(err, preProcessingResult, result)
     
-    def saveDANAResult(self, itemname, dataItem, epoch):
+    def saveDANAResult(self, itemname, dataItem, preProcessingResult, computationResult):
         """ Result DANAFramework.saveDANAResult fro documentation
         """
-    
         try:
+            dataItem.processedFlag = True
+            dataItem.save()
+            
             # Set the logging tags
             tags = self.ianatags + itemname + " SAVIN"
             
             self.log.info("Running SAVIN", extra=tags)
             
-            dataItem.processEntity.validFlag = True
-            dataItem.processEntity.save()
-            dataItem.processedFlag = True 
-            dataItem.epoch = epoch
-            dataItem.save()
+            result = SuryaIANAResult()
+    
+            result.item                       = dataItem.processEntity    
+            result.preProcessingConfiguration = dataItem.preProcessingConfiguration
+            result.preProcessingResult        = preProcessingResult.result
+            result.computationConfiguration   = dataItem.computationConfiguration
+            result.bcStrips                   = dataItem.bcStrips
+            result.computationResult          = computationResult 
+            result.status                     = "COMPLETE"
+            result.isEmailed                  = False
+            result.date                       = datetime.datetime.now()
+            result.save()
             
             self.log.info("Done Running SAVIN", extra=tags)
-            
         except Exception, err:
             raise ResultSavingError(err)
-    
-    def onError(self, itemname, dataItem, epoch, err, phase):
+            
+    def onError(self, itemname, dataItem, err, phase):
         """ Refer DANAFramework.onError for documentation
         """
+        
+        dataItem.processedFlag = True
+        dataItem.save()
         
         # Set the logging tags
         tags = self.ianatags + itemname + " " + phase
         
         self.log.error(phase + " Failed, cause: "+ str(err), extra=tags)
         
+        failedResult = SuryaIANAFailedResult()
         
-        dataItem.processEntity.validFlag = False
-        dataItem.processEntity.invalidReason = phase + " Failed"
-        dataItem.processEntity.save()
+        failedResult.item      = dataItem.processEntity
+        failedResult.isEmailed = False
+        failedResult.status    = phase 
+        failedResult.date      = datetime.datetime.now()
         
-        if phase == "SAVIN":
-            return
-        
-        dataItem.processedFlag = False
-        dataItem.epoch = epoch
-        dataItem.save()
+        if phase == "PPROCCALIB" or phase == "SAVIN":
+            failedResult.save()
+            
+        if phase == "PPROC" or phase == "COMPUCALIB":
+            failedResult.preProcessingConfiguration = dataItem.preProcessingConfiguration
+            failedResult.preProcessingResult = err.result
+            failedResult.save()
+
+        if phase == "COMPU":
+            failedResult.preProcessingConfiguration = dataItem.preProcessingConfiguration
+            failedResult.preProcessingResult        = err.preProcessingResult
+            failedResult.computationConfiguration   = dataItem.computationConfiguration
+            failedResult.bcStrips                   = dataItem.bcStrips
+            failedResult.computationResult          = err.computationResult
+            failedResult.save()        
         
 if __name__ == "__main__":
     connect("SuryaDB")
     iana = IANAFramework(logging.DEBUG)
-    iana.run("IANAFramework.pid", "IANAFramework", 10, False)
+    iana.run("IANAFramework.pid", "IANAFramework", 10)
     
