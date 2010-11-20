@@ -4,6 +4,7 @@ Created on Nov 11, 2010
 @author: surya
 '''
 
+import json
 import logging
 import datetime
 
@@ -175,7 +176,45 @@ class IANAFramework(DANAFramework):
                 # to the calibration data table.
                 # and use this new calibration entry for computing BCVol
                 #
-                pass
+                try:
+                    misc = dataItem.processEntity.misc
+                    misc_dict = json.loads(misc)
+                except ValueError as ve:
+                    self.log.error('[ Sanity ] The misc input is not a json syntax string. Store it as { "rawstring": (...input...)} . The orignial Input:' + str(misc)+ "Reason:" + str(ve), extra=tags)
+                    
+                # Get the exposedtime, flowrate, filterradius params
+                isnew = False
+                if misc_dict.has_key("exposedtime"):
+                    exposedtime = float(misc_dict['exposedtime'])
+                    isnew = True
+                else:
+                    exposedtime = dataItem.computationConfiguration.exposedTime
+                if misc_dict.has_key("filterradius"):
+                    filterradius = float(misc_dict['filterradius'])
+                    isnew = True
+                else:
+                    filterradius = dataItem.computationConfiguration.filterRadius
+                if misc_dict.has_key("flowrate"):
+                    flowrate = float(misc_dict['flowrate'])
+                    isnew = True
+                else:
+                    flowrate = dataItem.computationConfiguration.airFlowRate
+                bcarea = 3.14 * filterradius * filterradius # NOTE: unused to remove
+                
+                if isnew:
+                    calibId = 0
+                    calibId = SuryaCalibrationData.objects.order_by('-calibrationId').first().calibrationId #Todo change this
+                    if calibId > 0:
+                        calibId = calibId + 1
+                        SuryaImageAnalysisCalibrationData(calibrationId=calibId,
+                                                          exposedTime=exposedtime,
+                                                          filterRadius=filterradius,
+                                                          airFlowRate=flowrate,
+                                                          bcArea=bcarea).save()
+                                             
+                        dataItem.computationConfiguration = SuryaCalibrationData.objects.order_by('-calibrationId').first() 
+                    # done overriding
+                
             self.log.info("Done Running COMPUCALIB", extra=tags)        
             return dataItem.computationConfiguration, dataItem.bcStrips
         except Exception, err:
