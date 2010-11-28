@@ -37,7 +37,7 @@ class Circle:
         """
         return '{{center:{0}, radius:{1}}}'.format(self.center, self.radius)
 
-    def draw(self, drawing, color):
+    def draw(self, drawing, color, samplingfactor=20):
         """ Draws the outline of the circle on the specified drawing
         
         Keyword arguments:
@@ -48,7 +48,7 @@ class Circle:
 
         drawing.ellipse((self.center - offset, self.center + offset),
                             outline=color)
-        spotRadius = self.radius / 20
+        spotRadius = self.radius / samplingfactor
         offset = spotRadius, spotRadius
 
         topLeft = self.center - offset

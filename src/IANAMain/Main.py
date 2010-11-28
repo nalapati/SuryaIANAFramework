@@ -86,7 +86,7 @@ def Main(imagefile, filterRadius, bcGradient, exposedTime, airFlowRate, imageLog
     qr, exitcode = detectQR(imagefile, tags, logging.DEBUG)
 
     if exitcode is not ExitCode.Success:
-        log.error('Could not process for QR: ' + exitcode, extra=tags)
+        log.error('Could not process for QR: ' + str(exitcode), extra=tags)
         return None, exitcode
     
     if imageLogLevel:
@@ -164,7 +164,7 @@ def Main(imagefile, filterRadius, bcGradient, exposedTime, airFlowRate, imageLog
             index = 1
             for bcFilter in bcFilters:
                 drawing.text(bcFilter.center, str(index), MainConstants.bandnames[bandIndex], font)
-                bcFilter.draw(drawing, MainConstants.bandnames[bandIndex])
+                bcFilter.draw(drawing, MainConstants.bandnames[bandIndex], MainConstants.samplingfactor)
                 index += 1
             bandIndex += 1
 
@@ -235,6 +235,8 @@ if __name__ == '__main__':
                                options.filename + "debug.png",
                                options.filename + "chart.png",
                                "ConsoleRun",
-                               logging.DEBUG)
-    print bccResult
-    print exitcode
+                               logging.CRITICAL)
+    print "RESULTIS: %f,%f" % (bccResult.BCVolRed, bccResult.BCAreaRed)
+    #logging.DEBUG)
+    #print bccResult
+    #print exitcode
