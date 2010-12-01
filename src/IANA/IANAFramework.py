@@ -199,25 +199,57 @@ class IANAFramework(DANAFramework):
                     isnew = True
                 else:
                     flowrate = dataItem.computationConfiguration.airFlowRate
-                bcarea = 3.14 * filterradius * filterradius # NOTE: unused to remove
-                
+                            
                 if isnew:
+                    bcarea = 3.14 * filterradius * filterradius # NOTE: unused to remove
                     calibId = 0
                     calibId = SuryaCalibrationData.objects.order_by('-calibrationId').first().calibrationId #Todo change this
                     if calibId > 0:
                         calibId = calibId + 1
-                        SuryaImageAnalysisCalibrationData(calibrationId=calibId,
-                                                          exposedTime=exposedtime,
-                                                          filterRadius=filterradius,
-                                                          airFlowRate=flowrate,
-                                                          bcArea=bcarea).save()
-                                             
-                        dataItem.computationConfiguration = SuryaCalibrationData.objects.order_by('-calibrationId').first() 
+                        try:
+                            # check if calibration data exists
+                            dataItem.computationConfiguration, added = SuryaImageAnalysisCalibrationData.objects.get_or_create(exposedTime=exposedtime,
+                                                                                                                               filterRadius=filterradius,
+                                                                                                                               airFlowRate=flowrate,
+                                                                                                                               defaults={'calibrationId':calibId,
+                                                                                                                                         'exposedTime':exposedtime,
+                                                                                                                                         'filterRadius':filterradius,
+                                                                                                                                         'airFlowRate':flowrate,
+                                                                                                                                         'bcArea':bcarea})
+                            
+                        except OperationError, oe:
+                            self.log.error("Failed to save the retrieved calibration data", extra=tags)
+                            raise CompuCalibrationError(oe, preProcessingResult)
+                                                
+                    if misc_dict.has_key("bcstrips"):
+                        bcstrip = misc_dict['bcstrips'].split(",")
+                        try:
+                            if len(bcstrip) == 10:
+                                fbcstrip = []
+                                for bcstripval in bcstrip:
+                                    fbcstrip.append(float(bcstripval))
+                                try:
+                                    if not isnew:
+                                        calibId = 0
+                                        calibId = SuryaCalibrationData.objects.order_by('-calibrationId').first().calibrationId #Todo change this
+
+                                    calibId = calibId + 1
+                                    if calibId > 0:
+                                        dataItem.bcStrips, added = SuryaImageAnalysisBCStripData.objects.get_or_create(bcStrips=fbcstrip, defaults={'calibrationId':calibId,
+                                                                                                                                                    'bcStrips':fbcstrip})
+                                except OperationError, oe:
+                                    self.log.error("Failed to save the retrieved bcstrip data", extra=tags)
+                                    raise CompuCalibrationError(oe, preProcessingResult)
+                                
+                        except ValueError as ve:
+                                self.log.error("invalid bcstrip string encountered: "+misc_dict['bcstrip'], extra=tags) 
                     # done overriding
                 
             self.log.info("Done Running COMPUCALIB", extra=tags)        
             return dataItem.computationConfiguration, dataItem.bcStrips
         except Exception, err:
+            if isinstance(err, CompuCalibrationError):
+                raise err
             raise CompuCalibrationError(err, preProcessingResult)
         
     def computeDANAResult(self, itemname, dataItem, preProcessingResult):
