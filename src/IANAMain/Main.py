@@ -20,7 +20,7 @@ from Logging.Logger import getLog
 from IANASteps.Geometry.Point import Point
 from IANASettings.Settings import ExitCode, MainConstants, CalibratorConstants
 from IANASteps.QRDetector.QRDetector import detectQR
-from IANASteps.StageDetector.StageDetector import detectStage
+from IANASteps.StageDetector.StageDetector import detectStage, detectCalibrator
 from IANASteps.ImageTransformer.ImageTransformer import transform
 from IANASteps.Calibrator.Calibrator import getGrayBars
 from IANASteps.BCFilterDetector.BCFilterDetector import splitToBands, detectBCFilter, select, PsycoInit
@@ -98,6 +98,13 @@ def Main(imagefile, filterRadius, bcGradient, exposedTime, airFlowRate, imageLog
         log.error('Could not process for Stage: ' + exitcode, extra=tags)
         return None, exitcode
     
+    # Calibrator detection Step
+    calibrator, exitcode = detectCalibrator(qr, tags, logging.DEBUG)
+    
+    if exitcode is not ExitCode.Success:
+        log.error('Could not process for Calibrator: ' + exitcode, extra=tags)
+        return None, exitcode
+    
     # Extract Data from the Calibrator
     grayBars, exitcode = getGrayBars(qr, image, tags, logging.DEBUG)
     
@@ -122,6 +129,11 @@ def Main(imagefile, filterRadius, bcGradient, exposedTime, airFlowRate, imageLog
         
             drawing.line(tuple(top + boxsize) + tuple(bottom+boxsize) , 'yellow')
             
+    # Patch
+    draw = ImageDraw.Draw(image)
+    draw.polygon((calibrator.topLeft, calibrator.bottomLeft, calibrator.bottomRight, calibrator.topRight), fill='black')
+    del draw
+    
     # Image Transformation Step
     image, exitcode = transform(image, stage, tags, logging.DEBUG)
 
@@ -153,7 +165,7 @@ def Main(imagefile, filterRadius, bcGradient, exposedTime, airFlowRate, imageLog
     
     
     for band in bands:
-        bcFilters, exitcode = detectBCFilter(band, tags, logging.DEBUG)
+        bcFilters, exitcode = detectBCFilter(band, None, tags, logging.DEBUG)
         
         if exitcode is not ExitCode.Success:
             log.error('Could not detect filters in the Image ' + exitcode, extra=tags)
@@ -188,12 +200,12 @@ def Main(imagefile, filterRadius, bcGradient, exposedTime, airFlowRate, imageLog
     log.info('Done Running SuryaImageAnalyzer', extra=tags)
     
     if imageLogLevel:
-        plotChart(filterRadius, exposedTime, airFlowRate, bcGradient, gradient, bccResult, chartFile)
+        plotChart(filterRadius, exposedTime, airFlowRate, bcGradient, gradient, bccResult, sampledRGB, chartFile)
         debugImage.save(debugImageFile)
         
     if imageLogLevel > 1:
         debugImage.show()
-    
+     
     return bccResult, exitcode
 
 if __name__ == '__main__':
