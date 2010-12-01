@@ -43,7 +43,7 @@ class BCFilterConstants:
     
     ##
     # Resolution of the accumulator
-    dp = 1
+    dp = 2
     
     ##
     # Minimum Radius of circles to detect
@@ -232,5 +232,5 @@ import os
 class MainConstants:
     fontfile = IANASteps.Geometry.__path__[0] + '/arial.ttf'
     bandnames = ['red', 'green', 'blue']
-    samplingfactor = 10
+    samplingfactor = 5
     
