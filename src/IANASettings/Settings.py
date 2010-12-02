@@ -23,7 +23,7 @@ class BCCCalculatorConstants:
     
     ##
     # PI
-    Pi = 3.14
+    Pi = 3.1415926535897931
 
     @classmethod
     def str(cls):
@@ -107,10 +107,11 @@ class CalibratorConstants:
     # Offset of each colorbar from the bottom of the QR code
     ColorBarOffsets = [ColorOffset + ColorSeparation * i
                         for i in range(3)]
-    
+
     ##
-    # Offset from qr to gray calibrating stripes
-    GrayOffset = .3
+    # Offset from qr to gray calibrating stripes    
+    #GrayOffset = .3 # MLL: changed to .32 on 2010-11-27 so it is centered a little better
+    GrayOffset = .32
     
     ##
     # Separation between gray calibrating stripes
@@ -123,11 +124,13 @@ class CalibratorConstants:
     
     ##
     # Last Gray Bar offset
-    LastGrayBarOffset = 5.0/3.0
+    #LastGrayBarOffset = 5.0/3.0 # MLL: changed to 21.0/12.0 so sample boxes are more in centers
+    LastGrayBarOffset = 21.0/12.0
     
     ##
     # BoxSize representing GrayBars and ColorBars
-    BoxSize = 4
+    # BoxSize = 4 # MLL: changed to 6 on 2010-11-27 so we sample more points
+    BoxSize = 6
     
     @classmethod
     def str(cls):
@@ -232,5 +235,6 @@ import os
 class MainConstants:
     fontfile = IANASteps.Geometry.__path__[0] + '/arial.ttf'
     bandnames = ['red', 'green', 'blue']
+    # samplingfactor = 10 # MLL: changed to 5 on 2010-11-27 so we have a larger sample area
     samplingfactor = 5
     

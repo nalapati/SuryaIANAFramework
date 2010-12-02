@@ -37,18 +37,19 @@ class Circle:
         """
         return '{{center:{0}, radius:{1}}}'.format(self.center, self.radius)
 
-    def draw(self, drawing, color):
+    def draw(self, drawing, color, samplingfactor=20):
         """ Draws the outline of the circle on the specified drawing
         
         Keyword arguments:
         drawing -- Image.Draw instance   
         color   -- Color to draw the outline in
+        samplingfactor -- An indicator to the size of the center of the circle that needs to be drawn
         """
         offset = self.radius, self.radius
 
         drawing.ellipse((self.center - offset, self.center + offset),
                             outline=color)
-        spotRadius = self.radius / 20
+        spotRadius = self.radius / samplingfactor
         offset = spotRadius, spotRadius
 
         topLeft = self.center - offset

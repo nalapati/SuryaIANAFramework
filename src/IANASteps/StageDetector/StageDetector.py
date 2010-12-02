@@ -109,7 +109,8 @@ def detectCalibrator(qr, parenttags=None, level=logging.ERROR):
                                                                       StageDetectorConstants.cleft, 
                                                                       StageDetectorConstants.cright, 
                                                                       StageDetectorConstants.ctop,
-                                                                      StageDetectorConstants.cbottom)
+                                                                      StageDetectorConstants.cbottom,
+                                                                      tags)
     except Exception, err:
         log.error('Error %s' % str(err), extra=tags)
         return None, ExitCode.CalibratorDetectionError

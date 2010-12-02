@@ -205,7 +205,7 @@ def featureExtractor(imagefile, imageLogLevel, debugImagefile, preProcessingConf
                 index = 1
                 for bcFilter in bcFilters:
                     drawing.text(bcFilter.center, str(index), MainConstants.bandnames[bandIndex], font)
-                    bcFilter.draw(drawing, MainConstants.bandnames[bandIndex])
+                    bcFilter.draw(drawing, MainConstants.bandnames[bandIndex], MainConstants.samplingfactor)
                     index += 1
                 bandIndex += 1
     
@@ -243,3 +243,4 @@ def featureExtractor(imagefile, imageLogLevel, debugImagefile, preProcessingConf
                     saveDebugImage(debugImage, debugImagefile, tags)
         log.error('Error %s' % str(err), extra=tags)
         return None, ExitCode.UnknownError
+    
