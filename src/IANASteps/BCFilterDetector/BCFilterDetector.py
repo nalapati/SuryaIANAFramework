@@ -148,12 +148,12 @@ def select(bands):
     """
 
     # Check the circles detected in the red band. 
-    if len(bands[0]) > 0:
-        return bands[0]
-    elif len(bands[2]) > 0:
+    if len(bands[2]) > 0:
         return bands[2]
     elif len(bands[1]) > 0:
         return bands[1]
+    elif len(bands[0]) > 0:
+        return bands[0]
     else: 
         return None
 

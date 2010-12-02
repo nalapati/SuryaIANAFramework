@@ -43,6 +43,7 @@ class Circle:
         Keyword arguments:
         drawing -- Image.Draw instance   
         color   -- Color to draw the outline in
+        samplingfactor -- An indicator to the size of the center of the circle that needs to be drawn
         """
         offset = self.radius, self.radius
 

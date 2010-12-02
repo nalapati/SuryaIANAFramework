@@ -21,12 +21,13 @@ from Logging.Logger import getLog
 from IANASteps.Geometry.Point import Point
 from IANASettings.Settings import ExitCode, MainConstants, CalibratorConstants
 from IANASteps.QRDetector.QRDetector import detectQR
-from IANASteps.StageDetector.StageDetector import detectStage
+from IANASteps.StageDetector.StageDetector import detectStage, detectCalibrator
 from IANASteps.ImageTransformer.ImageTransformer import transform
 from IANASteps.Calibrator.Calibrator import getGrayBars
 from IANASteps.BCFilterDetector.BCFilterDetector import splitToBands, detectBCFilter, select, PsycoInit
 from IANASteps.BCCCalculator.BCCCalculator import rateFilter
 from IANAUtil.Chart import plotChart
+from optparse import OptionParser
 
 log = getLog("Main")
 log.setLevel(logging.ERROR)
@@ -96,14 +97,21 @@ def Main(imagefile, filterRadius, bcGradient, exposedTime, airFlowRate, imageLog
     stage, exitcode = detectStage(qr, tags, logging.DEBUG)
     
     if exitcode is not ExitCode.Success:
-        log.error('Could not process for Stage: ' + exitcode, extra=tags)
+        log.error('Could not process for Stage: ' + str(exitcode), extra=tags)
+        return None, exitcode
+    
+    # Calibrator detection Step
+    calibrator, exitcode = detectCalibrator(qr, tags, logging.DEBUG)
+    
+    if exitcode is not ExitCode.Success:
+        log.error('Could not process for Calibrator: ' + str(exitcode), extra=tags)
         return None, exitcode
     
     # Extract Data from the Calibrator
     grayBars, exitcode = getGrayBars(qr, image, tags, logging.DEBUG)
     
     if exitcode is not ExitCode.Success:
-        log.error('Could not get grayBars from Calibrator ' + exitcode, extra=tags)
+        log.error('Could not get grayBars from Calibrator ' + str(exitcode), extra=tags)
         return None, exitcode
     
     gradient = []
@@ -123,11 +131,16 @@ def Main(imagefile, filterRadius, bcGradient, exposedTime, airFlowRate, imageLog
         
             drawing.line(tuple(top + boxsize) + tuple(bottom+boxsize) , 'yellow')
             
+    # Patch
+    draw = ImageDraw.Draw(image)
+    draw.polygon((calibrator.topLeft, calibrator.bottomLeft, calibrator.bottomRight, calibrator.topRight), fill='black')
+    del draw
+    
     # Image Transformation Step
     image, exitcode = transform(image, stage, tags, logging.DEBUG)
 
     if exitcode is not ExitCode.Success:
-        log.error('Could not transform using Stage Coordinates: ' + exitcode, extra=tags)
+        log.error('Could not transform using Stage Coordinates: ' + str(exitcode), extra=tags)
         return None, exitcode
     
     if imageLogLevel:
@@ -135,7 +148,7 @@ def Main(imagefile, filterRadius, bcGradient, exposedTime, airFlowRate, imageLog
         debugImage, exitcode = transform(debugImage, stage, tags, logging.DEBUG)
 
         if exitcode is not ExitCode.Success:
-            log.error('Could not transform debugImage using Stage Coordinates: ' + exitcode, extra=tags)
+            log.error('Could not transform debugImage using Stage Coordinates: ' + str(exitcode), extra=tags)
             return None, exitcode
     
         drawing = ImageDraw.Draw(debugImage)
@@ -183,7 +196,7 @@ def Main(imagefile, filterRadius, bcGradient, exposedTime, airFlowRate, imageLog
     bccResult, exitcode = rateFilter(sampledRGB, filterRadius, exposedTime, airFlowRate, bcGradient, gradient, tags, logging.DEBUG)
     
     if exitcode is not ExitCode.Success:
-        log.error('Could not compute BCC result for : ' + exitcode, extra=tags)
+        log.error('Could not compute BCC result for : ' + str(exitcode), extra=tags)
         return None, exitcode
 
     log.info('Done Running SuryaImageAnalyzer', extra=tags)
@@ -194,26 +207,26 @@ def Main(imagefile, filterRadius, bcGradient, exposedTime, airFlowRate, imageLog
         
     if imageLogLevel > 1:
         debugImage.show()
-    
+     
     return bccResult, exitcode
 
 if __name__ == '__main__':
-    # (imagefile, filterRadius, bcGradient, exposedTime, airFlowRate, imageLogLevel, debugImageFile, chartFile, level=logging.ERROR,):
-    ##bccResult, exitcode = Main('/home/surya/Desktop/Surya_BC_Catalog-2010-10-13/Khairatpur-2010-08/09092010039.jpg',  # Los_Angeles-2010-06/0625101809.jpg 
-    #                           5.45,
-    #                           pylab.array([  0.53805296,   0.77764056,   
-    #                            1.10252548,   1.54307503, 
-    #                            2.14046781,   2.9505427 ,
-    #                            4.04901822,   5.53856995,
-    #                            7.55842775,  10.29738974]),
-    #                           1150,
-    #                           0.68,
-    #                           2,
-    #                           '/home/surya/Desktop/Surya_BC_Catalog-2010-10-13/Khairatpur-2010-08/09092010039.jpg.debug.png',
-    #                           '/home/surya/Desktop/Surya_BC_Catalog-2010-10-13/Khairatpur-2010-08/09092010039.jpg.chart.png',
-    #                           'Khairatpur-2010-08/09092010039.jpg',
-    #                           logging.DEBUG)
-    
+# (imagefile, filterRadius, bcGradient, exposedTime, airFlowRate, imageLogLevel, debugImageFile, chartFile, level=logging.ERROR,):
+#    bccResult, exitcode = Main('/home/surya/Desktop/Surya_BC_Catalog-2010-10-13/Khairatpur-2010-08/09092010039.jpg',  # Los_Angeles-2010-06/0625101809.jpg 
+#                               5.45,
+#                               pylab.array([  0.53805296,   0.77764056,   
+#                                1.10252548,   1.54307503, 
+#                                2.14046781,   2.9505427 ,
+#                                4.04901822,   5.53856995,
+#                                7.55842775,  10.29738974]),
+#                               1150,
+#                               0.68,
+#                               2,
+#                               '/home/surya/Desktop/Surya_BC_Catalog-2010-10-13/Khairatpur-2010-08/09092010039.jpg.debug.png',
+#                               '/home/surya/Desktop/Surya_BC_Catalog-2010-10-13/Khairatpur-2010-08/09092010039.jpg.chart.png',
+#                               'Khairatpur-2010-08/09092010039.jpg',
+#                               logging.DEBUG)
+
     parser = OptionParser()
     parser.add_option("-f", "--file", dest="filename",
                       help="image file", metavar="IMAGE")
@@ -231,12 +244,11 @@ if __name__ == '__main__':
                                             7.55842775,  10.29738974]),
                                options.expose,
                                options.flowrate,
-                               2,
+                                2,
                                options.filename + "debug.png",
                                options.filename + "chart.png",
                                "ConsoleRun",
-                               logging.CRITICAL)
-    print "RESULTIS: %f,%f" % (bccResult.BCVolRed, bccResult.BCAreaRed)
-    #logging.DEBUG)
-    #print bccResult
-    #print exitcode
+                               logging.DEBUG)
+    
+    print bccResult
+    print exitcode

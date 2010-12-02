@@ -73,4 +73,3 @@ class Quadrilateral:
         """
         return image.crop((int(self.topLeft[0]), int(self.topLeft[1])),
                                 (int(self.bottomRight[0]), int(self.bottomRight[1])))
-        

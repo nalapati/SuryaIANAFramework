@@ -4,7 +4,6 @@ Created on Oct 12, 2010
 @author: surya
 '''
 
-#import pylab
 import matplotlib
 matplotlib.use('Agg')
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
@@ -26,6 +25,7 @@ def plotChart(filterRadius, exposedTime, flowRate, bcgradient, gradient, bccResu
     fig = Figure() # Figure(figsize=(6.4, 4.8), dpi=100) # should be
     canvas = FigureCanvas(fig)
     ax = fig.add_subplot(111)
+
     # plot the RGB vals of the test strip
     ax.plot(gradientRed, BCGradient, 'rx',
             gradientGreen, BCGradient, 'gx',
@@ -65,8 +65,8 @@ def plotChart(filterRadius, exposedTime, flowRate, bcgradient, gradient, bccResu
         bcstrip_short += "{val:0.2f} ".format(val=f)
     
     ax.set_title('ExposedTime: {0}, FlowRate:{1} , FilterRadius:{2} \n BCStrip: {3}'
-                 .format(str(exposedTime), str(flowRate),
-                         str(filterRadius), bcstrip_short))
+                  .format(str(exposedTime), str(flowRate),
+                          str(filterRadius), bcstrip_short))
 
     canvas.print_png(chartName)
-    # close?
+    # Note make sure file represented by 'chartName' is closed later

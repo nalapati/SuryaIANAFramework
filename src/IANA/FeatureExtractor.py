@@ -16,7 +16,7 @@ from Logging.Logger import getLog
 from IANASteps.Geometry.Point import Point
 from IANASteps.QRDetector.QRDetector import detectQR
 from IANASteps.Calibrator.Calibrator import getGrayBars
-from IANASteps.StageDetector.StageDetector import detectStage
+from IANASteps.StageDetector.StageDetector import detectStage, detectCalibrator
 from IANASteps.ImageTransformer.ImageTransformer import transform
 from IANASettings.Settings import ExitCode, MainConstants, CalibratorConstants,\
     BCFilterConstants
@@ -112,6 +112,13 @@ def featureExtractor(imagefile, imageLogLevel, debugImagefile, preProcessingConf
             log.error('Could not process imagefile for Stage: ' + ExitCode.toString[exitcode], extra=tags)
             return None, exitcode
         
+        # Calibrator detection Step
+        calibrator, exitcode = detectCalibrator(qr, tags, logging.DEBUG)
+        
+        if exitcode is not ExitCode.Success:
+            log.error('Could not process for Calibrator: ' + exitcode, extra=tags)
+            return None, exitcode
+        
         ###
         # Extract Data from the Calibrator, i.e. Gradient
         ###
@@ -139,6 +146,12 @@ def featureExtractor(imagefile, imageLogLevel, debugImagefile, preProcessingConf
                 bottom = Point(grayBars[5 + i*6].box.coordinates[0:2])
             
                 drawing.line(tuple(top + boxsize) + tuple(bottom+boxsize) , 'yellow')
+        
+        
+        # Patch
+        draw = ImageDraw.Draw(image)
+        draw.polygon((calibrator.topLeft, calibrator.bottomLeft, calibrator.bottomRight, calibrator.topRight), fill='black')
+        del draw
         
         ###        
         # Image Transformation Step
@@ -201,6 +214,9 @@ def featureExtractor(imagefile, imageLogLevel, debugImagefile, preProcessingConf
         bestBand = select(bcFiltersPerBand)
         
         if not bestBand:
+            if imageLogLevel:
+                    saveDebugImage(debugImage, debugImagefile, tags)
+            log.error('Could not detect any filters in the image: ' + ExitCode.toString[exitcode], extra=tags)
             return None, ExitCode.UnknownError
         
         bestBcFilter = bestBand[0]
@@ -223,5 +239,8 @@ def featureExtractor(imagefile, imageLogLevel, debugImagefile, preProcessingConf
         return (sampledRGB, qr.aux, gradient), exitcode
 
     except Exception, err:
+        if imageLogLevel:
+                    saveDebugImage(debugImage, debugImagefile, tags)
         log.error('Error %s' % str(err), extra=tags)
         return None, ExitCode.UnknownError
+    

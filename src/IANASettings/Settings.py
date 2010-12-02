@@ -43,7 +43,7 @@ class BCFilterConstants:
     
     ##
     # Resolution of the accumulator
-    dp = 1
+    dp = 2
     
     ##
     # Minimum Radius of circles to detect
@@ -107,9 +107,9 @@ class CalibratorConstants:
     # Offset of each colorbar from the bottom of the QR code
     ColorBarOffsets = [ColorOffset + ColorSeparation * i
                         for i in range(3)]
-    
+
     ##
-    # Offset from qr to gray calibrating stripes
+    # Offset from qr to gray calibrating stripes    
     #GrayOffset = .3 # MLL: changed to .32 on 2010-11-27 so it is centered a little better
     GrayOffset = .32
     
