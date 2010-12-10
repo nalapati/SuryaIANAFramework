@@ -4,15 +4,20 @@ Created on Nov 11, 2010
 @author: surya
 '''
 
+import os
 import json
 import logging
+import StringIO
 import datetime
+import traceback
 
 from gridfs import *
 from mongoengine import *
 from Logging.Logger import getLog
 from bson.objectid import ObjectId
+from ImageUtils import ImageResize
 from IANASettings.Settings import ExitCode
+from IANASettings.Settings import ResizeImageConstants
 from mongoengine.connection import _get_db
 from DANA.DANAFramework import DANAFramework
 from FeatureExtractor import featureExtractor
@@ -134,6 +139,27 @@ class IANAFramework(DANAFramework):
         
             # Get the Features from the image
             features, exitcode = featureExtractor(imagefile, 1, result.debugImage, dataItem.preProcessingConfiguration, tags, logging.DEBUG)
+
+            # If failed, maybe we need to shrink/grow image down
+            if exitcode is not ExitCode.Success:
+                self.log.info("Resizing image", extra=tags)
+                shrunkimage = ImageResize.imageResize(dataItem.processEntity.origFile, ResizeImageConstants.LargestSide)
+                replimg = StringIO.StringIO()
+                shrunkimage.save(replimg, format="JPEG")
+                replimg.seek(0)
+                self.log.info("Resizing image %d" % (replimg.len), extra=tags)
+                dataItem.processEntity.file.replace(replimg, content_type='image/jpeg')
+                imagefile = dataItem.processEntity.file
+                # redo the debug image
+                if self.fs.exists(filename=debugImagename):
+                    debugImage = self.fs.get_last_version(debugImagename)
+                    self.fs.delete(debugImage.__getattr__("_id"))
+                
+                result.debugImage.new_file(filename=debugImagename, content_type='image/png')
+                
+                # run QR detection again
+                self.log.info("Rerunning featureExtractor with resized image", extra=tags)
+                features, exitcode = featureExtractor(imagefile, 1, result.debugImage, dataItem.preProcessingConfiguration, tags, logging.DEBUG)
     
             # Set the result status
             result.status = ExitCode.toString[exitcode]
@@ -147,15 +173,15 @@ class IANAFramework(DANAFramework):
             
             self.log.info("Done Running PPROC", extra=tags)
             return PreProcessingResult(features, result)
-        except Exception, err:
+        except Exception as err:
             if isinstance(err, PreProcessingError):
                 raise err
             result = SuryaImagePreProcessingResult()
             result.item                       = dataItem.processEntity
             result.preProcessingConfiguration = dataItem.preProcessingConfiguration
             result.validFlag                  = False
-            result.status                     = str(err)
-            raise PreProcessingError(None, result, None)
+            result.status                     = traceback.format_exc()
+            raise PreProcessingError(result.status, result, err)
              
             
     def getComputationConfiguration(self, itemname, dataItem, preProcessingResult):

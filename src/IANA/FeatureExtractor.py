@@ -4,10 +4,12 @@ Created on Nov 2, 2010
 @author: surya
 '''
 
+import os
 import os.path
 import StringIO
 import logging
 import psyco
+import traceback
 import PIL.Image as Image
 import PIL.ImageDraw as ImageDraw
 import PIL.ImageFont as ImageFont
@@ -239,8 +241,8 @@ def featureExtractor(imagefile, imageLogLevel, debugImagefile, preProcessingConf
         return (sampledRGB, qr.aux, gradient), exitcode
 
     except Exception, err:
+        log.error('Error %s' % traceback.format_exc(), extra=tags)
         if imageLogLevel:
                     saveDebugImage(debugImage, debugImagefile, tags)
-        log.error('Error %s' % str(err), extra=tags)
         return None, ExitCode.UnknownError
     

@@ -37,6 +37,16 @@ class BCCCalculatorConstants:
                                                                                                  cls.Pi)
 
 ########################################################################
+#                        Image Resize Constants                        #
+########################################################################
+class ResizeImageConstants:
+    
+    ##
+    # Resize the largest side to this new resolution
+    LargestSide = 1024
+
+
+########################################################################
 #                          BCFilter Constants                          #
 ########################################################################
 class BCFilterConstants:
